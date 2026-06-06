@@ -23,7 +23,10 @@ PYBIND11_MODULE(_semi_columnar_engine, m) {
     py::class_<SemiColumnarEngine>(m, "SemiColumnarEngine")
         .def(py::init<size_t>())
         .def("size", &SemiColumnarEngine::size)
-        // ✨ 註冊對齊真實機台的五大電性渠道（移除舊的 mean/variance）
+        // 🌟 註冊帶有去回程方向控制的物理指標萃取核
+        .def("extract_on_off_ratio", &SemiColumnarEngine::extract_on_off_ratio, py::arg("is_backward"))
+        .def("extract_vth", &SemiColumnarEngine::extract_vth, py::arg("is_backward"))
+        .def("extract_ss", &SemiColumnarEngine::extract_ss, py::arg("is_backward"))
         .def("v_g", [](SemiColumnarEngine &self) {
             return py::array_t<double>({self.size()}, {sizeof(double)}, self.v_g().data(), py::cast(self));
         })
@@ -40,7 +43,6 @@ PYBIND11_MODULE(_semi_columnar_engine, m) {
             return py::array_t<double>({self.size()}, {sizeof(double)}, self.abs_i_s().data(), py::cast(self));
         });
 
-    // 註冊 CSV 解析器
     py::class_<B1500Parser>(m, "B1500Parser")
         .def_static("load_csv", &B1500Parser::load_csv);
 }
