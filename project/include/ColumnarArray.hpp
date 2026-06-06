@@ -3,38 +3,44 @@
 
 #include <cstdlib>
 #include <stdexcept>
-#include <iostream>
+#include <new>
 
 template <typename T>
 class ColumnarArray {
 public:
-    // 建構子：申請對齊 64-byte 的記憶體
-    ColumnarArray(size_t size) : m_size(size) {
+    ColumnarArray(size_t size) : m_size(size), m_data(nullptr) {
+        if (size == 0) return;
         size_t total_bytes = size * sizeof(T);
-        
-        // 為了確保對齊安全，我們把總申請量補足到 64 的倍數
         size_t padding = (total_bytes % 64 == 0) ? 0 : (64 - (total_bytes % 64));
         size_t alloc_size = total_bytes + padding;
 
-        // 使用 Unit 7 學到的對齊申請函數
-        m_data = static_cast<T*>(std::aligned_alloc(64, alloc_size));
+        void* raw_ptr = std::aligned_alloc(64, alloc_size);
+        if (!raw_ptr) throw std::bad_alloc();
+        m_data = static_cast<T*>(raw_ptr);
 
-        if (!m_data) {
-            throw std::bad_alloc();
+        for (size_t i = 0; i < m_size; ++i) {
+            new (&m_data[i]) T(); 
         }
     }
 
-    // 解構子：手動釋放 Heap 記憶體
     ~ColumnarArray() {
-        if (m_data) std::free(m_data);
+        if (m_data) {
+            std::free(m_data);
+            m_data = nullptr;
+        }
     }
 
-    // 取得資料指標與大小
-    T* data() { return m_data; }
-    size_t size() const { return m_size; }
+    // ✨ Unit 11 精神：禁用複製與移動，防止跨界 Double Free 記憶體崩潰
+    ColumnarArray(const ColumnarArray&) = delete;
+    ColumnarArray& operator=(const ColumnarArray&) = delete;
+    ColumnarArray(ColumnarArray&&) = delete;
+    ColumnarArray& operator=(ColumnarArray&&) = delete;
 
-    // 存取資料的 operator (像陣列一樣用法)
+    T* data() { return m_data; }
+    const T* data() const { return m_data; }
+    size_t size() const { return m_size; }
     T& operator[](size_t i) { return m_data[i]; }
+    const T& operator[](size_t i) const { return m_data[i]; }
 
 private:
     T* m_data;
